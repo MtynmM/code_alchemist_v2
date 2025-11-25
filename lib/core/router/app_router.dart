@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/splash/presentation/pages/splash_screen.dart';
 import '../../features/home/presentation/pages/home_screen.dart';
+import '../../features/game/presentation/pages/game_screen.dart';
 
 final GoRouter appRouter = GoRouter(
   routes: [
@@ -12,6 +13,10 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/home',
       builder: (context, state) => const HomeScreen(),
+    ),
+    GoRoute(
+      path: '/game',
+      builder: (context, state) => const GameScreen(),
     ),
   ],
 );
