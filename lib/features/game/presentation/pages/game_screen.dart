@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flame/game.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/cyberpunk_button.dart';
+import '../../logic/code_alchemist_game.dart';
 
 class GameScreen extends StatelessWidget {
   const GameScreen({super.key});
@@ -6,13 +11,31 @@ class GameScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: Text(
-          'GAME LOOP START',
-          style: Theme.of(context).textTheme.headlineLarge,
-        ),
+      backgroundColor: AppColors.voidBackground,
+      body: Stack(
+        children: [
+          // Fullscreen game widget
+          GameWidget<CodeAlchemistGame>.controlled(
+            gameFactory: CodeAlchemistGame.new,
+          ),
+          // Floating back button
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: CyberpunkButton(
+                  label: 'BACK',
+                  icon: Icons.arrow_back,
+                  onPressed: () {
+                    context.go('/home');
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
-
