@@ -1,57 +1,59 @@
 import 'package:flame/game.dart';
 import 'package:flame/components.dart';
-import '../../../../core/theme/app_colors.dart';
 import '../../../core/constants/game_constants.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../components/code_player.dart';
-import '../components/joystick_component.dart';
 import '../components/digital_background.dart';
+
+enum AgentCommand { dash, turnLeft, turnRight }
+
+enum Direction { up, right, down, left }
+
+enum AgentState { idle, run, dash }
 
 class CodeAlchemistGame extends FlameGame {
   late final World world;
-  late final CodePlayer _player;
-  late final JoystickComponent _joystick;
+  late final CodePlayer agent;
+
+  bool _isBusy = false;
 
   @override
   Color get backgroundColor => AppColors.voidBackground;
 
   @override
   Future<void> onLoad() async {
-    await super.onLoad();
-
     world = World();
     add(world);
-
-    // Background
-    final DigitalBackground background = DigitalBackground();
-    world.add(background);
-
-    // Player (spawned at world center)
-    _player = CodePlayer();
-    _player.position = Vector2.zero();
-    world.add(_player);
-
-    // HUD: Joystick (added to the viewport so it stays static on screen)
-    _joystick = JoystickComponent(position: Vector2.zero());
-    camera.viewport.add(_joystick);
-    _joystick.priority = 10; // Ensure joystick is above world
-
-    // Link joystick to player
-    _player.joystick = _joystick;
-
-    // Camera setup: center/lock to player
+    final bg = DigitalBackground();
+    world.add(bg);
+    agent = CodePlayer();
+    agent.position = Vector2.zero();
+    world.add(agent);
     camera.viewfinder.anchor = Anchor.center;
-    camera.follow(_player);
+    camera.follow(agent);
   }
 
-  @override
-  void onGameResize(Vector2 size) {
-    super.onGameResize(size);
-    // Place joystick at consistent HUD position (e.g. bottom left, 80px offset)
-    if (_joystick != null) {
-      final Vector2 joystickPos = Vector2(80, size.y - 80);
-      _joystick.position = joystickPos;
-      _joystick.updateCenter(joystickPos);
+  Future<void> executeBatch(List<AgentCommand> commands) async {
+    if (_isBusy) return;
+    _isBusy = true;
+
+    for (final cmd in commands) {
+      switch (cmd) {
+        case AgentCommand.dash:
+          await agent.dashForward();
+          break;
+        case AgentCommand.turnLeft:
+          await agent.turn(left: true);
+          break;
+        case AgentCommand.turnRight:
+          await agent.turn(left: false);
+          break;
+      }
+      await camera.moveTo(agent.position,
+        effectController: EffectController(
+            duration: 0.22, curve: Curves.easeInOutCubic)); // cam smooth follow
     }
+    _isBusy = false;
   }
 }
 
