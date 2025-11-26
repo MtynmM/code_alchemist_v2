@@ -1,11 +1,12 @@
 import 'package:flame/game.dart';
 import 'package:flame/components.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../core/constants/game_constants.dart';
 import '../components/code_player.dart';
 import '../components/joystick_component.dart';
 import '../components/digital_background.dart';
 
-class CodeAlchemistGame extends FlameGame with HasDraggables {
+class CodeAlchemistGame extends FlameGame {
   late final World world;
   late final CodePlayer _player;
   late final JoystickComponent _joystick;
@@ -20,21 +21,24 @@ class CodeAlchemistGame extends FlameGame with HasDraggables {
     world = World();
     add(world);
 
-    final background = DigitalBackground();
+    // Background
+    final DigitalBackground background = DigitalBackground();
     world.add(background);
 
+    // Player (spawned at world center)
     _player = CodePlayer();
-    // Start in center of world
-    _player.position = background.size / 2;
+    _player.position = Vector2.zero();
     world.add(_player);
 
-    // Add joystick as HUD so it doesn't move with the world
-    _joystick = JoystickComponent(position: Vector2(80, size.y - 80));
+    // HUD: Joystick (added to the viewport so it stays static on screen)
+    _joystick = JoystickComponent(position: Vector2.zero());
     camera.viewport.add(_joystick);
+    _joystick.priority = 10; // Ensure joystick is above world
 
+    // Link joystick to player
     _player.joystick = _joystick;
 
-    // Camera configuration
+    // Camera setup: center/lock to player
     camera.viewfinder.anchor = Anchor.center;
     camera.follow(_player);
   }
@@ -42,11 +46,11 @@ class CodeAlchemistGame extends FlameGame with HasDraggables {
   @override
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
-    // Place joystick at bottom left
+    // Place joystick at consistent HUD position (e.g. bottom left, 80px offset)
     if (_joystick != null) {
-      final joystickPosition = Vector2(80, size.y - 80);
-      _joystick.position = joystickPosition;
-      _joystick.updateCenter(joystickPosition);
+      final Vector2 joystickPos = Vector2(80, size.y - 80);
+      _joystick.position = joystickPos;
+      _joystick.updateCenter(joystickPos);
     }
   }
 }
