@@ -31,10 +31,6 @@ class CodePlayer extends PositionComponent with HasGameRef<CodeAlchemistGame> {
     
     if (joystick != null && joystick!.relativeDelta.length2 > 0) {
       position.add(joystick!.relativeDelta * speed * dt);
-      
-      // Keep player within screen bounds
-      position.x = position.x.clamp(size.x / 2, gameRef.size.x - size.x / 2);
-      position.y = position.y.clamp(size.y / 2, gameRef.size.y - size.y / 2);
     }
   }
 }
