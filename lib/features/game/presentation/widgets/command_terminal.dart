@@ -1,161 +1,128 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../bloc/game_bloc.dart';
 
-enum AgentCommand { dash, turnLeft, turnRight }
+class CommandTerminal extends StatelessWidget {
+  const CommandTerminal({
+    super.key,
+    required this.onRun,
+    required this.busy,
+    required this.currentExecutingIndex,
+  });
 
-class CommandTerminal extends StatefulWidget {
   final void Function(List<AgentCommand>) onRun;
   final bool busy;
-  const CommandTerminal({super.key, required this.onRun, this.busy = false});
-
-  @override
-  State<CommandTerminal> createState() => _CommandTerminalState();
-}
-
-class _CommandTerminalState extends State<CommandTerminal>
-    with TickerProviderStateMixin {
-  final List<AgentCommand> _queue = [];
-  final List<AnimationController> _animControllers = [];
-
-  @override
-  void dispose() {
-    for (final c in _animControllers) {
-      c.dispose();
-    }
-    super.dispose();
-  }
-
-  void _addAnim(AgentCommand cmd) {
-    final c = AnimationController(
-      value: 1,
-      vsync: this,
-      duration: const Duration(milliseconds: 220),
-      lowerBound: 1,
-      upperBound: 1.15,
-    );
-    setState(() {
-      _queue.add(cmd);
-      _animControllers.add(c);
-    });
-    c.forward().then((_) => c.reverse());
-  }
-
-  void _clear() {
-    for (final c in _animControllers) {
-      c.dispose();
-    }
-    setState(() {
-      _queue.clear();
-      _animControllers.clear();
-    });
-  }
-
-  void _run() {
-    widget.onRun(_queue);
-    _clear();
-  }
+  final int currentExecutingIndex;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 16, 12, 18),
-      decoration: BoxDecoration(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(29)),
-        border: Border.all(color: Colors.cyanAccent.withOpacity(0.34), width: 1.5),
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.cyanAccent.withOpacity(0.11),
-            Colors.black.withOpacity(0.44),
-          ],
-        ),
-        boxShadow: const [
-          BoxShadow(
-              color: Colors.black38, blurRadius: 24, offset: Offset(0, -4)),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(29)),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+    return BlocBuilder<GameBloc, GameState>(
+      builder: (context, state) {
+        return Container(
+          color: Colors.black,
+          padding: const EdgeInsets.all(12),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Command Queue Row
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: List.generate(_queue.length, (i) {
-                    final icon = _iconFor(_queue[i]);
-                    if (i >= _animControllers.length) return const SizedBox.shrink();
-                    return ScaleTransition(
-                      scale: Tween(begin: 1.0, end: 1.08).animate(
-                        CurvedAnimation(
-                          parent: _animControllers[i],
-                          curve: Curves.easeInOutBack,
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.cyanAccent.withOpacity(0.22),
-                            borderRadius: BorderRadius.circular(14),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Colors.black38, blurRadius: 10, offset: Offset(0, 3)),
-                            ],
-                          ),
-                          child: Icon(icon, color: Colors.cyanAccent, size: 28),
-                        ),
-                      ),
-                    );
-                  }),
+              // Trace Level (assume from game, for now static)
+              Text(
+                'TRACE: ${busy ? 'EXECUTING' : 'IDLE'}',
+                style: const TextStyle(
+                  color: Colors.green,
+                  fontFamily: 'monospace',
+                  fontSize: 14,
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 8),
+              // Command Queue as CLI lines
+              Container(
+                height: 100,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.green, width: 1),
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: List.generate(state.commands.length, (i) {
+                      final cmd = state.commands[i];
+                      final isExecuting = i == currentExecutingIndex;
+                      return Text(
+                        '> ${isExecuting ? '[EXEC]' : ''} ${_textFor(cmd)}',
+                        style: TextStyle(
+                          color: isExecuting ? Colors.yellow : Colors.green,
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          fontWeight: isExecuting ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ).animate(
+                        effects: isExecuting ? [ShakeEffect(duration: 500.ms)] : [],
+                      );
+                    }),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _btn(() => _addAnim(AgentCommand.dash), Icons.arrow_upward, 'DASH'),
-                  _btn(() => _addAnim(AgentCommand.turnLeft), Icons.rotate_left, 'LEFT'),
-                  _btn(() => _addAnim(AgentCommand.turnRight), Icons.rotate_right, 'RIGHT'),
-                  _btn(widget.busy || _queue.isEmpty ? null : _run, Icons.play_arrow, 'RUN',
-                      color: Colors.green, fg: Colors.white),
+                  _cliBtn('DASH', () => context.read<GameBloc>().add(AddCommandEvent(AgentCommand.dash))),
+                  _cliBtn('LEFT', () => context.read<GameBloc>().add(AddCommandEvent(AgentCommand.turnLeft))),
+                  _cliBtn('RIGHT', () => context.read<GameBloc>().add(AddCommandEvent(AgentCommand.turnRight))),
+                  _cliBtn('HACK', () => context.read<GameBloc>().add(AddCommandEvent(AgentCommand.hack))),
+                  _cliBtn('RUN', state.commands.isEmpty || busy ? null : onRun),
+                  _cliBtn('CLEAR', () => context.read<GameBloc>().add(ClearCommandsEvent())),
                 ],
               ),
             ],
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  IconData _iconFor(AgentCommand c) {
+  String _textFor(AgentCommand c) {
     switch (c) {
       case AgentCommand.dash:
-        return Icons.arrow_upward;
+        return 'DASH';
       case AgentCommand.turnLeft:
-        return Icons.rotate_left;
+        return 'TURN LEFT';
       case AgentCommand.turnRight:
-        return Icons.rotate_right;
+        return 'TURN RIGHT';
+      case AgentCommand.hack:
+        return 'HACK';
     }
   }
 
-  Widget _btn(VoidCallback? onTap, IconData icon, String label,
-      {Color? color, Color? fg}) {
-    return ElevatedButton.icon(
+  String _textFor(AgentCommand c) {
+    switch (c) {
+      case AgentCommand.dash:
+        return 'DASH';
+      case AgentCommand.turnLeft:
+        return 'TURN LEFT';
+      case AgentCommand.turnRight:
+        return 'TURN RIGHT';
+      case AgentCommand.hack:
+        return 'HACK';
+    }
+  }
+
+  Widget _cliBtn(String label, VoidCallback? onTap) {
+    return ElevatedButton(
       onPressed: onTap,
-      icon: Icon(icon, color: fg ?? Colors.cyanAccent),
-      label: Text(label, style: TextStyle(color: fg ?? Colors.cyanAccent)),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.green,
+          fontFamily: 'monospace',
+          fontSize: 10,
+        ),
+      ),
       style: ElevatedButton.styleFrom(
-        backgroundColor: color ?? Colors.cyan.shade900.withOpacity(0.53),
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        shadowColor: Colors.cyanAccent.withOpacity(0.13),
-        elevation: 4,
+        backgroundColor: Colors.black,
+        side: const BorderSide(color: Colors.green, width: 1),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       ),
     );
   }

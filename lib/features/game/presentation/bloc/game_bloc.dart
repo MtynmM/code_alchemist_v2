@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
-import '../../logic/code_alchemist_game.dart'; // Import AgentCommand enum
+// AgentCommand enum moved here for consistency
+enum AgentCommand { dash, turnLeft, turnRight, hack }
 
 // --- EVENTS ---
 abstract class GameEvent extends Equatable {
@@ -28,24 +29,28 @@ enum GameStatus { idle, running, completed }
 class GameState extends Equatable {
   final List<AgentCommand> commands;
   final GameStatus status;
+  final int currentExecutingIndex;
 
   const GameState({
     this.commands = const [],
     this.status = GameStatus.idle,
+    this.currentExecutingIndex = -1,
   });
 
   GameState copyWith({
     List<AgentCommand>? commands,
     GameStatus? status,
+    int? currentExecutingIndex,
   }) {
     return GameState(
       commands: commands ?? this.commands,
       status: status ?? this.status,
+      currentExecutingIndex: currentExecutingIndex ?? this.currentExecutingIndex,
     );
   }
 
   @override
-  List<Object> get props => [commands, status];
+  List<Object> get props => [commands, status, currentExecutingIndex];
 }
 
 // --- BLOC ---
@@ -68,7 +73,11 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     });
 
     on<ResetGameEvent>((event, emit) {
-      emit(state.copyWith(status: GameStatus.idle));
+      emit(state.copyWith(status: GameStatus.idle, currentExecutingIndex: -1));
     });
+  }
+
+  void setCurrentIndex(int index) {
+    emit(state.copyWith(currentExecutingIndex: index));
   }
 }

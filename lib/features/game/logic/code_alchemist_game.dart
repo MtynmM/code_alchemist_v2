@@ -16,6 +16,8 @@ class CodeAlchemistGame extends FlameGame {
   late final CodePlayer agent;
 
   bool _isBusy = false;
+  double traceLevel = 0.0; // 0 to 100
+  List<String> inventory = []; // Collected data
 
   @override
   Color get backgroundColor => AppColors.voidBackground;
@@ -38,6 +40,13 @@ class CodeAlchemistGame extends FlameGame {
     _isBusy = true;
 
     for (final cmd in commands) {
+      traceLevel += 10.0; // +10% per command
+      if (traceLevel >= 100.0) {
+        // Game Over
+        _gameOver();
+        return;
+      }
+
       switch (cmd) {
         case AgentCommand.dash:
           await agent.dashForward();
@@ -48,11 +57,51 @@ class CodeAlchemistGame extends FlameGame {
         case AgentCommand.turnRight:
           await agent.turn(left: false);
           break;
+        case AgentCommand.hack:
+          await agent.hack();
+          break;
       }
       await camera.moveTo(agent.position,
         effectController: EffectController(
             duration: 0.22, curve: Curves.easeInOutCubic)); // cam smooth follow
     }
+    _isBusy = false;
+  }
+
+  Future<void> executeCommand(AgentCommand cmd) async {
+    traceLevel += 10.0;
+    if (traceLevel >= 100.0) {
+      _gameOver();
+      return;
+    }
+
+    switch (cmd) {
+      case AgentCommand.dash:
+        await agent.dashForward();
+        break;
+      case AgentCommand.turnLeft:
+        await agent.turn(left: true);
+        break;
+      case AgentCommand.turnRight:
+        await agent.turn(left: false);
+        break;
+      case AgentCommand.hack:
+        await agent.hack();
+        break;
+    }
+    await camera.moveTo(agent.position,
+      effectController: EffectController(
+          duration: 0.22, curve: Curves.easeInOutCubic));
+  }
+
+  void detected() {
+    // Game Over due to detection
+    _gameOver();
+  }
+
+  void _gameOver() {
+    // Handle game over, e.g., show overlay, reset level
+    traceLevel = 0;
     _isBusy = false;
   }
 }

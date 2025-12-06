@@ -5,7 +5,7 @@ import 'dart:ui' as ui;
 import '../../../../core/theme/app_colors.dart';
 import '../../../core/constants/game_constants.dart';
 import '../logic/code_alchemist_game.dart';
-import 'joystick_component.dart';
+import 'level_components.dart';
 
 enum AgentState { idle, run, dash }
 enum Direction { up, right, down, left }
@@ -130,6 +130,45 @@ class CodePlayer extends SpriteAnimationGroupComponent<AgentState>
       await Future.delayed(const Duration(milliseconds: 12));
     }
     current = AgentState.idle;
+  }
+
+  Future<void> hack() async {
+    if (_moving) return;
+    // Calculate front position
+    int dx = 0, dy = 0;
+    switch (facing) {
+      case Direction.up:
+        dy = -1;
+        break;
+      case Direction.right:
+        dx = 1;
+        break;
+      case Direction.down:
+        dy = 1;
+        break;
+      case Direction.left:
+        dx = -1;
+        break;
+    }
+    final frontPos = _getWorldPos() + Vector2(dx * tileSize, dy * tileSize);
+
+    // Find interactable components at front position
+    final components = parent?.children.where((c) =>
+      c is PositionComponent &&
+      c.position.distanceTo(frontPos) < tileSize / 2 &&
+      (c is Firewall || c is DataNode)
+    );
+
+    if (components != null) {
+      for (final c in components) {
+        if (c is Firewall) {
+          c.hack();
+        } else if (c is DataNode) {
+          c.collect();
+          // Add to inventory or notify
+        }
+      }
+    }
   }
 }
 
