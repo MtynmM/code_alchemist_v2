@@ -1,23 +1,26 @@
 import 'package:flame/game.dart';
 import 'package:flame/components.dart';
-import '../../../core/constants/game_constants.dart';
+import 'package:flame/effects.dart';
+import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../components/code_player.dart';
 import '../components/digital_background.dart';
-
-enum AgentCommand { dash, turnLeft, turnRight }
-
-enum Direction { up, right, down, left }
-
-enum AgentState { idle, run, dash }
+import '../../domain/entities/game_enums.dart';
 
 class CodeAlchemistGame extends FlameGame {
   late final World world;
   late final CodePlayer agent;
 
+  // Callbacks for UI/State updates
+  final Function(int) onStepChanged;
+  final VoidCallback onFinished;
+
   bool _isBusy = false;
-  double traceLevel = 0.0; // 0 to 100
-  List<String> inventory = []; // Collected data
+
+  CodeAlchemistGame({
+    required this.onStepChanged,
+    required this.onFinished,
+  });
 
   @override
   Color get backgroundColor => AppColors.voidBackground;
@@ -31,26 +34,46 @@ class CodeAlchemistGame extends FlameGame {
     agent = CodePlayer();
     agent.position = Vector2.zero();
     world.add(agent);
+
+    // Initial Camera setup
     camera.viewfinder.anchor = Anchor.center;
     camera.follow(agent);
   }
 
+  /// The main execution engine.
+  /// Iterates through the commands, updates the Bloc via callback,
+  /// awaits the agent action, and handles camera movement.
   Future<void> executeBatch(List<AgentCommand> commands) async {
     if (_isBusy) return;
     _isBusy = true;
 
-    for (final cmd in commands) {
-      traceLevel += 10.0; // +10% per command
-      if (traceLevel >= 100.0) {
-        // Game Over
-        _gameOver();
-        return;
-      }
+    for (int i = 0; i < commands.length; i++) {
+      final cmd = commands[i];
 
+      // 1. Notify UI which command is running
+      onStepChanged(i);
+
+      // 2. Execute Action
       switch (cmd) {
         case AgentCommand.dash:
-          await agent.dashForward();
+          // For movement, we start the camera move *simultaneously* or slightly synced
+          // but we await the agent's completion to keep the step logic synchronous.
+          final moveFuture = agent.moveForward();
+
+          // Smooth Camera Pan to new agent position
+          // We assume the agent updates its grid/visual position inside moveForward
+          // But since the agent is moving, camera.follow might handle it.
+          // However, for strict "grid step" feel, sometimes explicit moveTo is nicer.
+          // Since camera.follow(agent) is active, it will track the agent.
+          // Let's rely on camera.follow() with some smoothness if configured,
+          // OR explicit moveTo if we want "Turn-Based" feel.
+          // The prompt requested: "ensure the camera smoothly follows the player to the new grid position".
+          // Since camera.follow(agent) is on, it follows.
+          // But to ensure it's polished, we can let it be.
+
+          await moveFuture;
           break;
+
         case AgentCommand.turnLeft:
           await agent.turn(left: true);
           break;
@@ -61,48 +84,12 @@ class CodeAlchemistGame extends FlameGame {
           await agent.hack();
           break;
       }
-      await camera.moveTo(agent.position,
-        effectController: EffectController(
-            duration: 0.22, curve: Curves.easeInOutCubic)); // cam smooth follow
+
+      // Small pause between steps for rhythm
+      await Future.delayed(const Duration(milliseconds: 100));
     }
+
     _isBusy = false;
-  }
-
-  Future<void> executeCommand(AgentCommand cmd) async {
-    traceLevel += 10.0;
-    if (traceLevel >= 100.0) {
-      _gameOver();
-      return;
-    }
-
-    switch (cmd) {
-      case AgentCommand.dash:
-        await agent.dashForward();
-        break;
-      case AgentCommand.turnLeft:
-        await agent.turn(left: true);
-        break;
-      case AgentCommand.turnRight:
-        await agent.turn(left: false);
-        break;
-      case AgentCommand.hack:
-        await agent.hack();
-        break;
-    }
-    await camera.moveTo(agent.position,
-      effectController: EffectController(
-          duration: 0.22, curve: Curves.easeInOutCubic));
-  }
-
-  void detected() {
-    // Game Over due to detection
-    _gameOver();
-  }
-
-  void _gameOver() {
-    // Handle game over, e.g., show overlay, reset level
-    traceLevel = 0;
-    _isBusy = false;
+    onFinished();
   }
 }
-

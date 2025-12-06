@@ -1,7 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
-// AgentCommand enum moved here for consistency
-enum AgentCommand { dash, turnLeft, turnRight, hack }
+import '../../domain/entities/game_enums.dart';
 
 // --- EVENTS ---
 abstract class GameEvent extends Equatable {
@@ -22,6 +21,15 @@ class ClearCommandsEvent extends GameEvent {}
 class RunCommandsEvent extends GameEvent {}
 
 class ResetGameEvent extends GameEvent {}
+
+class ExecutionCompletedEvent extends GameEvent {}
+
+class UpdateExecutionIndexEvent extends GameEvent {
+  final int index;
+  const UpdateExecutionIndexEvent(this.index);
+  @override
+  List<Object> get props => [index];
+}
 
 // --- STATE ---
 enum GameStatus { idle, running, completed }
@@ -69,15 +77,19 @@ class GameBloc extends Bloc<GameEvent, GameState> {
 
     on<RunCommandsEvent>((event, emit) {
       if (state.commands.isEmpty) return;
-      emit(state.copyWith(status: GameStatus.running));
+      emit(state.copyWith(status: GameStatus.running, currentExecutingIndex: -1));
     });
 
     on<ResetGameEvent>((event, emit) {
       emit(state.copyWith(status: GameStatus.idle, currentExecutingIndex: -1));
     });
-  }
 
-  void setCurrentIndex(int index) {
-    emit(state.copyWith(currentExecutingIndex: index));
+    on<ExecutionCompletedEvent>((event, emit) {
+      emit(state.copyWith(status: GameStatus.idle, currentExecutingIndex: -1));
+    });
+
+    on<UpdateExecutionIndexEvent>((event, emit) {
+      emit(state.copyWith(currentExecutingIndex: event.index));
+    });
   }
 }
