@@ -1,8 +1,9 @@
 import 'package:get_it/get_it.dart';
+import '../../features/game/presentation/bloc/game_bloc.dart';
 
 final sl = GetIt.instance;
 
 Future<void> init() async {
-  // Register your core dependencies here
-  // Example: sl.registerLazySingleton<YourType>(() => YourTypeImpl());
+  // Features - Game
+  sl.registerFactory(() => GameBloc());
 }
